@@ -1,0 +1,44 @@
+name: Deploy Three-Tier App to Azure VM
+
+# Trigger: run this pipeline whenever code is pushed to the main branch
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest       # GitHub provides this Linux machine to run our steps
+
+    steps:
+
+      # Step 1: Download the repo code onto the GitHub runner machine
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # Step 2: SSH into Azure VM and deploy
+      - name: Deploy to Azure VM via SSH
+        uses: appleboy/ssh-action@v1.0.0    # A popular action for running SSH commands
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: ${{ secrets.AZURE_VM_USER }}
+          key: ${{ secrets.AZURE_VM_SSH_KEY }}
+          script: |
+            # Navigate to the project directory (or clone if it doesn't exist yet)
+            if [ ! -d "~/docker-assignment-ih" ]; then
+              git clone https://github.com/P1oNerd/docker-assignment-ih.git ~/docker-assignment-ih
+            fi
+
+            cd ~/docker-assignment-ih
+
+            # Pull the latest code changes
+            git pull origin main
+
+            # Build images and start all containers in the background
+            # --build forces Docker to rebuild images (picks up code changes)
+            # -d runs containers in detached/background mode
+            docker compose down
+            docker compose up --build -d
+
+            # Show running containers to confirm deployment
+            docker compose ps
